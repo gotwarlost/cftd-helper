@@ -1,0 +1,153 @@
+(function () {
+    'use strict';
+    // multi-space regex
+    const squishRE = new RegExp('  *', 'g');
+
+    // extractText extracts the text content from a list of nodes, ignoring anchors
+    function extractText(nodes) {
+        if (!(nodes && nodes.forEach)) {
+            return '';
+        }
+        const segments = [];
+        nodes.forEach(function (node) {
+            const nt = node.nodeType;
+            if (nt === 3) { // text node
+                segments.push(node.nodeValue);
+                return;
+            }
+            if (nt !== 1) { // not element
+                return;
+            }
+            const tag = node.tagName.toLowerCase();
+            if (tag === 'a') { // don't include links content (typically mentions), but preserve hashtags
+                if (node.getAttribute('href').toLowerCase().startsWith('https://www.facebook.com/hashtag/')) {
+                    segments.push(node.textContent);
+                }
+                return;
+            }
+            if (tag === 'br') {
+                segments.push('');
+                return;
+            }
+            const innerText = extractText(node.childNodes);
+            if (innerText !== '') {
+                segments.push(innerText);
+            }
+        });
+        return segments.join(' ').replace(squishRE, ' ').trim();
+    }
+
+    // extractClues extracts clue information from the comments.
+    // This is extremely flaky and buggy by definition since it relies on the internals of the FB markup.
+    function extractClues() {
+        const clues = [];
+        const commentRoots = document.querySelectorAll('div[data-testid="UFI2Comment/root_depth_0"]');
+        commentRoots.forEach(function (root) {
+            const comment = root.querySelector('div[data-testid="UFI2Comment/body"]');
+            if (!comment) {
+                console.log('internal error: unable to find comment body');
+                return;
+            }
+            // only the first one otherwise you get all mentions, replies etc.
+            const personLink = comment.querySelector('a[data-hovercard]');
+            if (!personLink) {
+                return;
+            }
+            const parent = personLink.parentNode;
+
+            const spans = parent.querySelectorAll(':scope > span');
+            const text = extractText(spans);
+            if (text === '') {
+                return;
+            }
+            // extract number of reactions
+            let numReactions = '0';
+            let numReactionTypes = '0';
+            const reactions = root.querySelector('span[data-testid="UFI2CommentTopReactions/tooltip"]');
+            if (reactions) {
+                numReactions = reactions.textContent;
+                const rt = reactions.querySelectorAll('span > i');
+                numReactionTypes = rt ? String(rt.length) : '0';
+            }
+            clues.push({
+                name: personLink.textContent,
+                text: text,
+                numReactions: numReactions,
+                numReactionTypes: numReactionTypes,
+            });
+        });
+        return clues;
+    }
+
+    const ampRE = new RegExp('&', 'g');
+    const ltRE = new RegExp('<', 'g');
+    const gtRE = new RegExp('>', 'g');
+
+    // encodeEntities sanitizes the input string to escape tags.
+    function encodeEntities(value) {
+        return value.replace(ampRE, '&amp;').replace(ltRE, '&lt;').replace(gtRE, '&gt;');
+    }
+
+    // writeDocument writes the output to an empty document
+    function writeDocument(doc, clues) {
+        const lines = [];
+        let count = 0;
+        clues.forEach(function (info) {
+            count += 1;
+            lines.push([
+                '<tr class="' + (count % 2 === 0 ? 'even' : 'odd')+ '">',
+                '<td class="num">' + count + '</td>',
+                '<td class="name">' + encodeEntities(info.name) + '</td>',
+                '<td>' + encodeEntities(info.text) + '</td>',
+                '<td  class="num">' + encodeEntities(info.numReactions) + '</td>',
+                '<td  class="num">' + encodeEntities(info.numReactionTypes) + '</td>',
+                '</tr>',
+            ].join('\n'));
+        });
+        const tHead = [
+            '<thead>',
+            '<tr>',
+            '<th class="num">#</th>',
+            '<th>Clued by</th>',
+            '<th>Clue</th>',
+            '<th class="num"># reactions</th>',
+            '<th class="num"># reaction types</th>',
+            '</tr>',
+            '</thead>'
+        ].join('\n');
+        const table = '<table>' + tHead + '<tbody>' + lines.join('\n') + '</tbody><table>';
+        const header = [
+            '<html lang="en-us">',
+            '<head>',
+            '<title>Clue table</title>',
+            '<style type="text/css">',
+            'body { margin: 1em; }',
+            'table { font-family: "Franklin ITC Light",sans-serif; font-size: 11pt; }',
+            'td,th { padding: 3px 10px; border: 1px solid #ddd; text-align: left; }',
+            'td.num,th.num { text-align: right; }',
+            'tr.even > td { background: #eee; }',
+            'td.name { white-space: nowrap; }',
+            'table { border-collapse: collapse; }',
+            '</style>',
+            '</head>',
+            '<body>'
+        ].join('\n');
+        doc.open();
+        doc.write(header);
+        doc.write(table);
+        doc.write('</body></html>');
+    }
+
+    // main is the main function that creates the clue list.
+    function main() {
+        const clues = extractClues();
+        const w = window.open();
+        if (!w) {
+            alert("unable to open new window");
+            return;
+        }
+        writeDocument(w.document, clues);
+    }
+
+    main();
+})();

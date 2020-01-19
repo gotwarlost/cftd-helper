@@ -1,0 +1,23 @@
+{
+  "name": "cftd-helper",
+  "version": "1.0",
+  "description": "Extension that extracts crossword clues from a CFTD game",
+  "permissions": [
+    "declarativeContent",
+    "activeTab"
+  ],
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  },
+  "page_action": {
+  },
+  "icons": {
+    "16": "images/cross16.png",
+    "32": "images/cross32.png",
+    "48": "images/cross48.png",
+    "128": "images/cross128.png"
+  },
+  "manifest_version": 2
+}
+
