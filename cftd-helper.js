@@ -1,4 +1,13 @@
-(function () {
+// ==UserScript==
+// @name         cotd-helper
+// @namespace    http://tampermonkey.net/
+// @version      0.1
+// @description  COTD helper for cryptic crossword society pages. Can be used as a tampermonkey script or directly from plugin.
+// @author       gotwarlost
+// @match        https://www.facebook.com/groups/cryptics/permalink/*
+// @grant        none
+// ==/UserScript==
+(function (isTampermonkey) {
     'use strict';
     // multi-space regex
     const squishRE = new RegExp('  *', 'g');
@@ -138,8 +147,8 @@
         doc.write('</body></html>');
     }
 
-    // main is the main function that creates the clue list.
-    function main() {
+    // handler is the on-click handler for the inserted button
+    function handler() {
         const clues = extractClues();
         const w = window.open();
         if (!w) {
@@ -148,6 +157,34 @@
         }
         writeDocument(w.document, clues);
     }
+    // insertButton inserts our button as a previous sibling of the supplied node
+    function insertButton(commentNode) {
+        const el = document.createElement('button');
+        el.setAttribute('id','clue-dump');
+        el.setAttribute('type','button');
+        el.setAttribute('style', 'color: white; background: #4CAF50; font-size: 150%;');
+        el.appendChild(document.createTextNode('Extract clues'));
+        el.addEventListener('click', handler);
 
+        const wrapper = document.createElement('div');
+        wrapper.setAttribute('style','padding: 0.1em; margin: 0.5em 1em; text-align: right');
+        wrapper.appendChild(el);
+        commentNode.parentNode.insertBefore(wrapper,commentNode);
+    }
+
+    // main is the main function that creates the clue list.
+    function main() {
+        if (isTampermonkey) {
+            const ucw = document.querySelector('div.userContentWrapper');
+            if (!ucw) {
+                console.log('unable to find button insertion point, abort');
+                return
+            }
+            insertButton(ucw);
+            return;
+        }
+        // if running in our extension just run the handler.
+        handler();
+    }
     main();
-})();
+})(typeof GM_info !== "undefined");
