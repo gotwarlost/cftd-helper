@@ -48,11 +48,12 @@
 
     // extractClues extracts clue information from the comments.
     // This is extremely flaky and buggy by definition since it relies on the internals of the FB markup.
+    // All we can say at any time is: works on my machine today :)
     function extractClues() {
         const clues = [];
-        const commentRoots = document.querySelectorAll('div[data-testid="UFI2Comment/root_depth_0"]');
+        const commentRoots = document.querySelectorAll('div[aria-label="Comment"]');
         commentRoots.forEach(function (root) {
-            const comment = root.querySelector('div[data-testid="UFI2Comment/body"]');
+            const comment = root.querySelector('div._6qw3');
             if (!comment) {
                 console.log('internal error: unable to find comment body');
                 return;
@@ -72,7 +73,7 @@
             // extract number of reactions
             let numReactions = '0';
             let numReactionTypes = '0';
-            const reactions = root.querySelector('span[data-testid="UFI2CommentTopReactions/tooltip"]');
+            const reactions = root.querySelector('span[data-hover="tooltip"]');
             if (reactions) {
                 numReactions = reactions.textContent;
                 const rt = reactions.querySelectorAll('span > i');
